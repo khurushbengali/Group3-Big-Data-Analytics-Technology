@@ -6,7 +6,7 @@
 * EDA
   ```
   EDA.rmd
-  https://public.tableau.com/app/profile/khurush.bengali./viz/Group3EDA/Dashboard1?publish=yes
+  [Tableau Public](https://public.tableau.com/app/profile/khurush.bengali./viz/Group3EDA/Dashboard1?publish=yes)
   ```
 * Apriori
   ```
