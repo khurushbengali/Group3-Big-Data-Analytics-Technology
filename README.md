@@ -1,2 +1,23 @@
 # Group3-Big-Data-Analytics-Technology
-Group 3 Project Description
+
+## Instacart Market Basket Anaylsis
+
+### Stages:
+* EDA
+  ```
+  EDA.rmd
+  https://public.tableau.com/app/profile/khurush.bengali./viz/Group3EDA/Dashboard1?publish=yes
+  ```
+* Apriori
+  ```
+  apriori.ipynb
+  ```
+* Clutering
+  ```
+  Customer_Segmentation_using_Clustering.ipynb
+  ```
+* Collaborative Filtering
+  ```
+  Collaborative_Filtering_Final.ipynb
+  ```
+
