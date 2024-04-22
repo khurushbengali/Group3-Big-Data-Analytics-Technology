@@ -1,0 +1,243 @@
+---
+title: "Instacart Market Basket Analysis Data Viz"
+author: "Group 3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(data.table)
+library(knitr)
+library(tidyverse)
+library(modelsummary)
+library(gridExtra)
+
+setwd("/Users/jinglyng/Documents/MSBA/Semester 2/CS5344/Group Project/instacart-market-basket-analysis")
+aisle <- fread("aisles.csv")
+dept <- fread("departments.csv")
+order_pdts_prior <- fread("order_products__prior.csv")
+order_pdts_train <- fread("order_products__train.csv")
+orders <- fread("orders.csv")
+products <- fread("products.csv")
+```
+
+### Understanding the data
+**Aisles**
+There are 134 aisles in the dataset
+```{r}
+str(aisle)
+paste(sort(head(aisle$aisle)), collapse=', ')
+```
+**Departments**
+There are 21 departments in the dataset
+```{r}
+str(dept)
+paste(sort(head(dept$department)), collapse=', ')
+```
+**Products**
+There are 49,688 products in the catalogue.
+Products are sorted into their respective aisles and departments. 
+```{r}
+str(products)
+kable(head(products))
+```
+
+**Orders**
+There are ~3.4 million observations in the order dataset. The observations are split into "prior", "train", and "test" sets. 
+
+```{r}
+str(orders)
+unique(orders$eval_set)
+```
+Analysing the orders of user number 1, we can see that the orders dataset shows that the user has 10 prior orders and 1 train order. Looking at the other users, it seems like the latest order of the users will either be the train or test set. 
+```{r}
+orders[user_id == 1]
+```
+
+**Order_Product**
+There are two datasets that combine order and product information. 
+- `orders_products_prior`: data on all prior orders
+- `orders_products_train`: data on the train sets (last order)
+
+This dataset breaks down the orders into each individual item. 
+`add_to_cart_order` tells us which order the product was added to card, 
+`reordered` tells us which products have been reordered by the user before.
+
+```{r}
+str(order_pdts_prior)
+head(order_pdts_prior)
+```
+
+**Prior and Train Set**
+```{r}
+# Number of Users in Each Set 
+orders[eval_set == "prior", length(unique(user_id))] # 206,209
+orders[eval_set == "train", length(unique(user_id))] # 131,209
+## Presumably, the missing users are in the test set that is not given to us
+
+# Number of Orders in Each Set
+orders[eval_set == "prior", length(unique(order_id))] # 3,214,874
+orders[eval_set == "train", length(unique(order_id))] # 131,209
+
+# Number of Obs for Orders_Products in Each Set
+order_pdts_prior[, .N] # 32,434,489
+order_pdts_train[, .N] # 1,384,617
+```
+
+Since we will not be training a ML model, we will just merge all the data together for EDA.
+
+```{r}
+dt <- rbind(order_pdts_prior, order_pdts_train)
+dt <- merge(dt, orders, by = "order_id")
+dt <- merge(dt, products, by = "product_id")
+dt <- merge(dt, aisle, by = "aisle_id")
+dt <- merge(dt, dept, by = "department_id")
+
+dt <- dt[, c(7, 4, 3, 5, 6, 9, 10, 11, 12, 13, 1, 15, 2, 14, 8)]
+setorder(dt, user_id, order_number, order_id,  add_to_cart_order)
+```
+
+### Subsetting the full dataset for apiori mechanism
+Since we are finding apriori rules, we will have to get all the products within an order. So we will randomly select 10% of all the orders.
+```{r apriori_subset}
+set.seed(123)
+n <- round(0.1 * orders[, .N])
+orders_sample <- sample_n(orders, n)
+dt_apriori <- dt[order_id %in% orders_sample$order_id]
+```
+
+We'll need to check that the sampled data is comparable to the actual dataset
+
+```{r}
+# Checking the top 10 products
+tmp <- unique(dt_apriori[, total_ordered := length(order_id), product_name][, percentage := total_ordered/length(unique(order_id))][, .(product_name, total_ordered, percentage)])
+
+
+plot1 <- ggplot(data = top_n(tmp, 15), aes(x = reorder(product_name, percentage), y = percentage)) +
+  geom_col() +
+  labs(y = "",
+       title = "Top 15 Products Apriori Sample") +
+    theme (
+    axis.text.x=element_text(angle=90, hjust=1, vjust=0.5),
+    axis.title.x = element_blank()) 
+
+tmp2 <- unique(dt[, total_ordered := length(order_id), product_name][, percentage := total_ordered/length(unique(order_id))][, .(product_name, total_ordered, percentage)])
+
+plot2 <- ggplot(data = top_n(tmp2, 15), aes(x = reorder(product_name, percentage), y = percentage)) +
+  geom_col() +
+  labs(y = "",
+       title = "Top 15 Products (Full Dataset)") +
+    theme (
+    axis.text.x=element_text(angle=90, hjust=1, vjust=0.5),
+    axis.title.x = element_blank()) 
+
+grid.arrange(plot1, plot2, ncol=2)
+
+# Checking number of products in each aisle and dept
+aisle_apr <- unique(dt_apriori[, total_ordered := length(order_id), aisle][, percentage := total_ordered/length(unique(order_id))][, .(aisle, total_ordered, percentage)])
+
+plot3 <- ggplot(data = top_n(aisle_apr, 15), aes(x = reorder(aisle, percentage), y = percentage)) +
+  geom_col() +
+  labs(y = "",
+       title = "Top 15 Aisles Apriori Sample") +
+    theme (
+    axis.text.x=element_text(angle=90, hjust=1, vjust=0.5),
+    axis.title.x = element_blank()) 
+
+aisle_dt <- unique(dt[, total_ordered := length(order_id), aisle][, percentage := total_ordered/length(unique(order_id))][, .(aisle, total_ordered, percentage)])
+
+plot4 <- ggplot(data = top_n(aisle_dt, 15), aes(x = reorder(aisle, percentage), y = percentage)) +
+  geom_col() +
+  labs(y = "",
+       title = "Top 15 Aisles") +
+    theme (
+    axis.text.x=element_text(angle=90, hjust=1, vjust=0.5),
+    axis.title.x = element_blank()) 
+
+grid.arrange(plot3, plot4, ncol=2)
+
+dept_apr <- unique(dt_apriori[, total_ordered := length(order_id), department][, percentage := total_ordered/length(unique(order_id))][, .(department, total_ordered, percentage)])
+
+dept_dt <- unique(dt[, total_ordered := length(order_id), department][, percentage := total_ordered/length(unique(order_id))][, .(department, total_ordered, percentage)])
+setnames(dept_dt, "percentage", "percentage_all")
+
+dept <- merge(dept_apr, dept_dt, by = "department")
+dept <- dept[, .(department, percentage, percentage_all)]
+
+setorder(dept, percentage)
+print(dept)
+
+# fwrite(dt_apriori, "apriori_subset.csv")
+```
+
+## Exploratory Data Analysis
+Interesting questions to explore:\
+
+**Products**
+- What are the top products ordered? What about the top products reordered?
+- What are the top products ordered everyday? What about time of the day?
+- Are there products that have never been ordered? Are there products that have never been reordered? 
+- How many products are reordered? 
+
+```{r}
+dt%>%
+  group_by(order_dow, product_name) %>%
+    summarize(n=n()) %>%
+  mutate(percentage=n/sum(n)) %>%
+  top_n(10, wt=n) %>%
+  ggplot (aes(x=as.factor(order_dow), y=percentage, fill=product_name)) + 
+  geom_col() + 
+  labs(x = "Days of the Week", 
+       y = "Proportion of Orders in a Day",
+       title = "Daily Top 10 Products ordered") +
+  theme(legend.position="bottom",legend.direction="horizontal")
+```
+
+**Orders**
+- How many orders did each user make? 
+- How long did it take before the user made the next order?  
+- 
+
+```{r}
+tmp = dt %>% group_by(user_id) %>% summarize(n_orders = max(order_number))
+tmp %>% ggplot(aes(x=as.factor(n_orders))) + 
+  geom_bar(colour = 'darkblue', fill='darkblue') +
+  labs(x = "Number of Orders Made by Users", 
+       y = "Count of Users",
+       title = "How many orders did each user make?") +
+  theme(
+      axis.text.x  = element_text (size = 6.0, angle = (90), hjust = 1, vjust = 0.5)
+    )
+
+tmp = dt %>% 
+  filter(order_number>1) %>% 
+  group_by(order_id) %>% 
+  summarize(n_orders = max(days_since_prior_order)) 
+
+tmp %>% ggplot(aes(x=as.factor(n_orders))) + 
+  geom_bar(colour = 'darkgreen', fill='darkgreen') + 
+    labs(
+      x = "Days Since Previous Order", 
+      y = "Count of Orders",
+      title = "How long did it take before the user made the next order?")
+```
+## Cart Size
+```{r}
+tmp = dt %>%
+  group_by(order_id)  %>%
+  summarize( basket_size=n(), 
+             reordered_items = sum(reordered)) %>%
+  group_by(basket_size) %>%
+  summarize(n=n(), avg_reordered_items =mean(reordered_items)) %>%
+  arrange(basket_size)
+  
+tmp %>% ggplot(aes(x=as.factor(basket_size))) +
+    geom_col(aes(y=n), colour = "darkred", fill="darkred") +
+    ylab('Count of Orders') +
+    xlab('Number of Items in Basket') +
+    ggtitle('Distribution of Basket Size') +
+    theme(
+      axis.text.x  = element_text (size = 6.0, angle = (90), hjust = 1, vjust = 0.5)
+    )
+```
