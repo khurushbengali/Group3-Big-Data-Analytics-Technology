@@ -3,7 +3,7 @@
 ## Instacart Market Basket Anaylsis
 
 ### Stages:
-* EDA
+* EDA  
   [Tableau Public](https://public.tableau.com/app/profile/khurush.bengali./viz/Group3EDA/Dashboard1?publish=yes)
   ```
   EDA.rmd
