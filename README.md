@@ -4,10 +4,10 @@
 
 ### Stages:
 * EDA
+  [Tableau Public](https://public.tableau.com/app/profile/khurush.bengali./viz/Group3EDA/Dashboard1?publish=yes)
   ```
   EDA.rmd
   ```
-  [Tableau Public](https://public.tableau.com/app/profile/khurush.bengali./viz/Group3EDA/Dashboard1?publish=yes)
 * Apriori
   ```
   apriori.ipynb
